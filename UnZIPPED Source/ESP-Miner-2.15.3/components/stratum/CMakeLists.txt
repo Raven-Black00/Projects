@@ -1,0 +1,21 @@
+idf_component_register(
+SRCS
+    "utils.c"
+    "mining.c"
+    "stratum_api.c"
+    "stratum_socket.c"
+    "coinbase_decoder.c"
+    "segwit_addr.c"
+    "base58.c"
+
+INCLUDE_DIRS
+    "include"
+
+REQUIRES
+    "mbedtls"
+    "app_update"
+    "esp_timer"
+    "tcp_transport"
+    "esp_netif"
+    "esp_psram"
+)
