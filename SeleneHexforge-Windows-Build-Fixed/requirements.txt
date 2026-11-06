@@ -1,4 +1,0 @@
-# Optional drag-and-drop support
-tkinterdnd2
-# Install bitaxetool separately only if needed for flashing.
-# Install external 7-Zip for .7z/.rar extraction.
