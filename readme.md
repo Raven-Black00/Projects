@@ -1,90 +1,187 @@
-# ⚔️ Raven Forge: Mining, Firmware & Cooling Lab
+# Alan's ASIC Mining Lab
 
-Home-lab notes, tools and tuning logs for my solo-mining rigs, built around
-the **Bitaxe Gamma Hex 1300 Hydro ("Loki's Bifrost")** and the retired/blown-up
-**NerdQAxe++ Hydro**. Everything here is Norse-themed, hands-on and automated
-where possible.
+A home lab for building, tuning, cooling, and monitoring open-source ASIC Bitcoin miners. It includes custom firmware builds, Python dashboards, flashing tools, and experiments with liquid, air, and thermoelectric cooling.
 
-## 1. Hardware
+Based in Waterloo, Ontario. I build things, test them, break them, and build them again.
 
-| Rig | ASICs | Cooling | Firmware | Status |
-|---|---|---|---|---|
-| Bitaxe Gamma Hex 1300 Hydro ("Loki's Bifrost") | 6x BM1370 (2 domains of 3) | AIO liquid, push/pull fans | AxeOS / ESP-Miner 2.15.3 | Active |
-| NerdQAxe++ Hydro | 4x BM1370 | Liquid (VR cooler) | ESP-Miner-NerdQAxePlus | Retired (failed Aug 2026) |
+---
 
-### Loki's Bifrost: Gamma Hex 1300 Hydro
-- Board: ESP32-S3, 1.9" LCD, 12 V input, four-phase TPS546D24S regulator, EMC2103 fan controller (open-source KiCad design, CERN-OHL).
-- Factory spec: ~8.4 TH/s at ~140-150 W; overclocked ~10.5-11 TH/s at ~191-200 W.
-- **My current tune:** 960 MHz @ 1.255 V -> ~12.2 TH/s at 205 W, ASIC 49 °C, VRM 45 °C.
-- Input voltage set to 12.1 V.
-- Power: interim MEAN WELL 350 W for the board; a **second** MEAN WELL 350 W runs the fans only.
-- Cooling mods:
-  - Original single RGB fan replaced with a high-CFM Noctua (push).
-  - Extra 3000 RPM fan pulling through the radiator (pull).
-  - VRM heatsinks plus a blower.
-  - Fresh MX-7 paste: ASIC1 vs ASIC2 delta improved from ~3 °C to ~0.9 °C.
-- Bought from SoloSatoshi. Pool: TODO
+## Table of Contents
+
+- [Hardware Fleet](#hardware-fleet)
+  - [Gamma Hex 1300 Hydro](#gamma-hex-1300-hydro)
+  - [NerdQAxe++ Hydro](#nerdqaxe-hydro)
+- [Cooling Experiments](#cooling-experiments)
+- [Firmware Development](#firmware-development)
+- [Software and Tools](#software-and-tools)
+- [ESP32 Display Projects](#esp32-display-projects)
+- [Monitoring and Telemetry](#monitoring-and-telemetry)
+- [Tuning Methodology](#tuning-methodology)
+- [Development Environment](#development-environment)
+- [Roadmap](#roadmap)
+- [Safety Notes](#safety-notes)
+
+---
+
+## Hardware Fleet
+
+### Gamma Hex 1300 Hydro
+
+A six-ASIC, water-cooled build in the Bitaxe Gamma family. The Hex layout spreads the hashing load across six chips. Water cooling gives it enough thermal headroom to run well past what stock air cooling can handle.
+
+| Item | Notes |
+|---|---|
+| Platform | Bitaxe-derived Hex board (6x BM1370-class ASICs) |
+| Controller | ESP32-S3 |
+| Cooling | Custom water block, pump, radiator loop |
+| Firmware | AxeOS-based, custom builds |
+| Focus | Sustained high hashrate, VRM and ASIC thermal control, efficiency (J/TH) |
+
+What I'm working on:
+- Getting stable frequency and core voltage pairs across all six chips
+- Keeping coolant delta-T and VRM temperatures inside safe limits
+- Matching pump and radiator fan curves to load
+- Logging power, voltage, frequency, hashrate, and error rate over long runs
 
 ### NerdQAxe++ Hydro
-- 4x BM1370, stock ~4.8 TH/s at ~72-76 W (~15-16 J/TH), ESP32-S3, AxeOS.
-- Ran on CKPool at 192.168.68.102; VR cooler fitted.
-- Firmware: shufps/ESP-Miner-NerdQAxePlus.
-- Lessons: watch reboot frequency, pick a stable firmware, never skimp on VRM cooling.
 
-> NerdQAxe firmware does **not** run on the Gamma Hex. The Hex uses the
-> Bitaxe/ESP-Miner multichip lineage. Keep the two builds separate.
+A four-ASIC NerdQAxe++ (BM1370) converted to liquid cooling. It runs the NerdQAxe / ESP-Miner-NerdQAxe firmware branch.
 
-## 2. Software Projects
+| Item | Notes |
+|---|---|
+| Platform | NerdQAxe++ (4x BM1370) |
+| Controller | ESP32-S3 with onboard display |
+| Cooling | Water block conversion (hydro) |
+| Firmware | ESP-Miner-NerdQAxe, built from source |
+| Focus | Overclock headroom, quiet operation, display UI customization |
 
-| Project | Language | Purpose |
+What I'm working on:
+- Building firmware from source and flashing it over web, USB, and OTA
+- Custom display themes and screens on the ESP32-S3
+- Tuning the PID fan/pump control loop and temperature targets
+- Comparing hydro and air efficiency at the same frequency
+
+---
+
+## Cooling Experiments
+
+| Method | Use | Notes |
 |---|---|---|
-| **LoKI-Miner** (v1.1.0 base) | Python | Custom GUI dashboard for the Gamma Hex |
-| **RavenMiner HQ** | Python | Multi-miner monitoring GUI |
-| **NerdQAxe-Dashboard** (Raven-Black00) | TODO | Dashboard for the NerdQAxe++ |
-| **Selene Forge GUI** | Python + Docker | Builds Hex firmware: clones ESP-Miner and libsecp256k1, unpacks zip/rar sources, validates, reads config.csv, shows a Norse console with Start/Pause/Cancel |
-| **Valhalla Flasher** (v2.0) | Python/Tkinter, esptool | Serial and IP/OTA flasher: www.bin -> wait for reload -> esp-miner.bin -> reboot; packaged with PyInstaller |
-| Temp/efficiency logger | Python | Polls AxeOS, finds the J/TH knee point |
+| Liquid (hydro) | Gamma Hex 1300, NerdQAxe++ | Water blocks, pumps, radiators, coolant temp monitoring |
+| Air | Single-chip Bitaxes, test benches | High-static-pressure fans, heatsink upgrades |
+| Thermoelectric (TEC/Peltier) | Experimental | Sub-ambient testing; watch condensation and power draw |
+| Thermal interface | All | Pads, paste, and putty compared on ASICs and VRMs |
 
-## 3. Firmware Build Workflow
+Principles:
+- Cool the VRMs as well as the ASICs. VRMs are often the real limit.
+- Log ambient, coolant, ASIC, and VRM temperatures together.
+- Change one variable per test.
+
+---
+
+## Firmware Development
+
+- ESP-IDF toolchain for ESP32 and ESP32-S3
+- Dockerized builds so the toolchain is the same every time
+- WSL2 on Windows 11 for Linux-native builds
+- CMake / component manager dependency handling
+- Web UI (AxeOS) built with npm/Angular
+- Flashing over esptool, web flasher, and OTA (`esp-miner.bin` + `www.bin`)
+
+Typical build:
 
 ```bash
-# NerdQAxe++ fork
-git clone [https://github.com/shufps/ESP-Miner-NerdQAxePlus](https://github.com/shufps/ESP-Miner-NerdQAxePlus)
-cd ESP-Miner-NerdQAxePlus
-git submodule update --init --recursive
-
-# Upstream Bitaxe / Hex (devcontainer approach)
-git clone [https://github.com/bitaxeorg/ESP-Miner.git](https://github.com/bitaxeorg/ESP-Miner.git)
-cd ESP-Miner
-docker build -t espminer-build .devcontainer
-docker run --rm -it -v $(pwd):/workspace espminer-build /bin/bash
+# Inside Docker / WSL2 with ESP-IDF
+git clone <firmware-repo>
+cd <firmware-repo>
+idf.py set-target esp32s3
 idf.py build
-./merge_bin.sh ./esp-miner-merged.bin
+idf.py -p /dev/ttyACM0 flash monitor
 ```
 
-Notes:
-- Artifacts: `esp-miner.bin`, `www.bin` (check `flash_args` for the real offsets).
-- Needs libsecp256k1 in `components/`.
-- Stack: Windows + WSL2 + Docker + ESP-IDF; Windows .exe via PyInstaller.
+Common issues I've hit and fixed:
+- ESP-IDF version mismatches
+- npm build failures in the web UI
+- CMake component resolution errors
+- Docker volume and permission problems under WSL2
 
-## 4. Tuning Playbook
-1. Change one variable at a time: frequency, then core voltage.
-2. Log hashrate, error %, ASIC temp, VRM temp, power, J/TH.
-3. Hold ASIC/VRM temps at or below target (currently 49 °C / 45 °C).
-4. Stop where J/TH efficiency falls off (the knee).
-5. Fan curve tied to chip temperature (TODO: controller choice).
-6. Peltier/TEC cooling was ruled out: the cold plate is rated ~300 W and chips
-   sit near 50-60 °C, so a TEC would add more heat than it removes.
-   A small TEC or better heatsink on the VRM area is the only plausible use.
+---
 
-## 5. Interests & Roadmap
-- ASIC control loops and auto-tuning
-- Embedded displays on ESP32/ESP32-S3
-- OTA flashing and API integration (AxeOS REST)
-- Telemetry visualisation, animations, Viking UI and sound effects
-- Cooling: liquid, air, thermoelectric experiments
-- TODO: fan-curve controller, alerting on over-temp, release packaging
+## Software and Tools
 
-## 6. Credits
-Bitaxe and ESP-Miner open-source community, shufps (NerdQAxe), SoloSatoshi.
-*May the Norns weave good blocks.* ᚱᚨᚢᚾ
+| Tool | Stack | Purpose |
+|---|---|---|
+| Mining Dashboard | Python (GUI) | Live fleet view: hashrate, temps, power, shares |
+| Flashing Utility | Python + esptool | One-click firmware flashing and OTA updates |
+| Build Automation | Bash / PowerShell / Docker | Repeatable firmware builds |
+| Windows Packaging | PyInstaller + batch | Standalone `.exe` tools and installers |
+
+Design: themed interfaces (Norse/Viking style), custom sound effects and animation, and clear telemetry visualization.
+
+---
+
+## ESP32 Display Projects
+
+- ESP32 / ESP32-S3 displays for miner stats
+- Pulling data from the miner REST APIs over the local network
+- Custom fonts, themes, and screen layouts
+- Embedded C/C++ (moving from Python into C/C++)
+
+---
+
+## Monitoring and Telemetry
+
+Metrics tracked per miner:
+- Hashrate (instant and averaged)
+- ASIC, VRM, and coolant temperature
+- Input voltage, core voltage, and power (W)
+- Frequency (MHz)
+- Efficiency (J/TH)
+- Shares, best difficulty, and error rate
+
+Data comes from the AxeOS / NerdQAxe HTTP API on the LAN (for example `GET /api/system/info`).
+
+---
+
+## Tuning Methodology
+
+1. Get a stock baseline (hashrate, power, temps).
+2. Raise frequency in small steps and hold each step long enough to stabilize.
+3. Adjust core voltage only when the error rate climbs.
+4. Watch VRM and ASIC temps. Back off at the thermal limit.
+5. Record efficiency at each step and pick the sweet spot, not the peak.
+6. Run a soak test for 24h+ before calling it stable.
+
+---
+
+## Development Environment
+
+- OS: Windows 11, Ubuntu, WSL2
+- Containers: Docker / Docker Desktop
+- Editor: Visual Studio Code
+- Version control: Git + GitHub
+- Languages: Python, C, C++, Bash, PowerShell, JavaScript/Node.js
+
+---
+
+## Roadmap
+
+- [ ] Unified dashboard for the Gamma Hex 1300 Hydro and NerdQAxe++ Hydro
+- [ ] Automatic tuning loop (frequency/voltage sweeps with logging)
+- [ ] Coolant flow and temperature sensors added to telemetry
+- [ ] Long-term data storage and historical charts
+- [ ] One-click Windows installer for all tools
+- [ ] More themed ESP32 display screens
+
+---
+
+## Safety Notes
+
+- Overclocking and overvolting can damage hardware and void warranties.
+- Leak-test water loops before powering on the hardware.
+- Use power supplies with headroom above peak draw.
+- TEC cooling can cause condensation. Insulate and monitor dew point.
+
+---
+
+Built in Waterloo, Ontario.
